@@ -18,7 +18,9 @@ import {
 import { OrderColumn } from "./column";
 import AlertModal from "@/components/models/alert-model";
 import usePreviewModal from "@/hooks/use-preview-modal";
-
+import axiosInstance from "@/lib/config-axios";
+import { parseVND } from "@/lib/utils";
+import { deleteOrderAction } from "@/actions/delete-order";
 interface CellActionProps {
     data: OrderColumn
 }
@@ -34,17 +36,30 @@ const CellAction: React.FC<CellActionProps> = ({
     const modalpro = usePreviewModal();
 
     const onCopy = (id: string) => {
-        modalpro.onOpen({ id: data?.orderID, garage: data?.owner_name, name: data?.name, price: String(Number(data?.totalPrice) / Number(data?.quantity)), start_address: data?.pickUpAddress, end_address: data?.destinationAddress, message: data?.message, phone: data?.phoneNumber, quantity: Number(data?.quantity), start_time: data?.pickTime, status_order: data?.orderStatus }, 3)
+        console.log("id tu oncopy data.tripid: ", data.tripId);
+        modalpro.onOpen({ 
+            id: data.orderId, 
+            garage: data?.owner_name, 
+            name: data?.name, 
+            price: String(parseVND(data?.totalPrice) / parseVND(data?.quantity)), 
+            start_address: data?.pickUpAddress, 
+            end_address: data?.destinationAddress, 
+            message: data?.message, 
+            phone: data?.phoneNumber, 
+            quantity: Number(data?.quantity), 
+            start_time: data?.pickTime, 
+            status_order: data?.orderStatus }, 3)
     }
     const onDelete = async () => {
         try {
             setLoading(true);
-            await axios.delete(`/api/${params.storeId}/products/${data.orderID}`);
+            // await axiosInstance.delete(`/seller/delete-order/${data.orderId}`);
+            await deleteOrderAction(Number(data.orderId));
             route.refresh();
             location.reload();
-            toast.success("Xóa thành công sản phẩm");
+            toast.success("Xóa thành công chuyến xe");
         } catch (error) {
-            toast.error("Trước tiên hãy đảm bảo bạn đã xóa tất cả sản phẩm và danh mục");
+            toast.error("Trước tiên hãy đảm bảo bạn đã xóa tất cả chuyến xe và danh mục");
             console.log(error)
         } finally {
             setLoading(false);
@@ -68,7 +83,7 @@ const CellAction: React.FC<CellActionProps> = ({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent >
                     <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => onCopy(data.orderID)}>
+                    <DropdownMenuItem onClick={() => onCopy(data?.tripId)}>
                         <Copy className="mr-2 h-4 w-4" />
                         Chi tiết và chỉnh sửa
                     </DropdownMenuItem>

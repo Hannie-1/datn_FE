@@ -3,28 +3,35 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import CellAction from "./cell-action"
+import { LocationResult } from "@/types"
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
 export type OrderColumn = {
-    orderID: string,
-    name: string,
-    pickUpAddress: string,
-    destinationAddress: string,
+    orderId: string,
+    name: string,//tên vé
+    pickUpAddress: LocationResult,
+    destinationAddress: LocationResult,
     pickTime: string,
     message: string,
     phoneNumber: string,
-    quantity: string,
-    totalPrice: string,
-    createdAt: string,
+    quantity: number,
+    price: number,
+    totalPrice: number,
     orderStatus: string,
-    owner_name: string
+    owner_name: string,
+    createdAt:string,
+    tripId: string
 }
 
 export const columns: ColumnDef<OrderColumn>[] = [
     {
+        accessorKey:"owner_name",
+        header:"Nhà xe"
+    },
+    {
         accessorKey: "name",
-        header: "Tên",
+        header: "Tuyến",
     },
     {
         accessorKey: "pickUpAddress",

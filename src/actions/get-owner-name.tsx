@@ -1,6 +1,6 @@
 import axiosInstance from "@/lib/config-axios";
 
-const API_URL = `/auth/get-owner-name`;
+const API_URL = `/common/get-owner-name`;
 
 const getOwnerName = async () => {
     try {

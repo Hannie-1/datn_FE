@@ -22,9 +22,15 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         setIsMounted(true);
     }, [])
 
+    // const onUpload = (result: any) => {
+    //     onChange(result.info.secure_url)
+    // }
     const onUpload = (result: any) => {
-        onChange(result.info.secure_url)
+    if (result?.info?.secure_url) {
+      onChange(result.info.secure_url);
     }
+  };
+
 
     if (!isMounted) {
         return null;
@@ -53,7 +59,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             <CldUploadWidget onUpload={onUpload} uploadPreset="esjkvc2l">
                 {({ open }) => {
                     const onClick = () => {
-                        open();
+                        // open();
+                        if (!open) {
+                            console.error("Cloudinary widget chưa sẵn sàng.");
+                            return;
+                            }
+                        open(); // ✅ Gọi có kiểm tra
                     }
                     return (
                         <Button

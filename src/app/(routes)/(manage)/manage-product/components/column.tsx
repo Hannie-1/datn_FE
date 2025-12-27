@@ -15,7 +15,7 @@ export type ProductColumn = {
     endAddress: string,
     startTime: string,
     endTime: string,
-    emptySeat: string,
+    quantitySeat: string,
     price: string,
     creatAt: string,
     status: string
@@ -28,7 +28,7 @@ export const columns: ColumnDef<ProductColumn>[] = [
     },
     {
         accessorKey: "name",
-        header: "Tên",
+        header: "Tuyến",
     },
     {
         accessorKey: "startAddress",
@@ -47,8 +47,8 @@ export const columns: ColumnDef<ProductColumn>[] = [
         header: "Thời gian kết thúc",
     },
     {
-        accessorKey: "emptySeat",
-        header: "Số ghế trống",
+        accessorKey: "quantitySeat",
+        header: "Số ghế",
     },
     {
         accessorKey: "price",

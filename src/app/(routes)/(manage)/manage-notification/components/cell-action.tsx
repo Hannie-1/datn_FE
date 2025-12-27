@@ -1,56 +1,72 @@
-import axios from "axios";
-import { useState } from "react"
-import toast from "react-hot-toast"
-import { useParams, useRouter } from "next/navigation"
+"use client";
+
+import { useState } from "react";
+import toast from "react-hot-toast";
+import { useParams, useRouter } from "next/navigation";
+import axiosInstance from "@/lib/config-axios";
+import useNotificationModal from "@/hooks/use-notification-modal";
+
 import {
     Copy,
     Edit,
     MoreHorizontal,
     Trash
-} from "lucide-react"
+} from "lucide-react";
 
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuLabel,
     DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
+} from "@/components/ui/dropdown-menu";
+
 import AlertModal from "@/components/models/alert-model";
 import { NotificationColumn } from "./column";
+import { deleteNoticeAction } from "@/actions/delete-notice";
 
 interface CellActionProps {
-    data: NotificationColumn
+    data: NotificationColumn;
 }
 
-
-const CellAction: React.FC<CellActionProps> = ({
-    data
-}) => {
-    const route = useRouter();
+const CellAction: React.FC<CellActionProps> = ({ data }) => {
+    const router = useRouter();
     const params = useParams();
+    const notificationModal = useNotificationModal();
     const [loading, setLoading] = useState<boolean>(false);
-    const [open, setOpen] = useState<boolean>(false)
+    const [open, setOpen] = useState<boolean>(false);
+
+    // 📌 COPY ID
     const onCopy = (id: string) => {
         navigator.clipboard.writeText(id);
-        toast.success("Id sản phẩm được sao chép vào bảng nhớ tạm.")
-    }
+        toast.success("ID thông báo đã được sao chép");
+    };
+
+    // 📌 DELETE NOTICE
     const onDelete = async () => {
         try {
             setLoading(true);
-            await axios.delete(`/api/${params.storeId}/products/${data.id}`);
-            route.refresh();
-            location.reload();
-            toast.success("Xóa thành công sản phẩm");
+            console.log("ID truoc khi goi api:", data.id);
+            // await axiosInstance.delete(`/seller/delete-notice/${data.id}`);
+            await deleteNoticeAction(data.id);
+
+            toast.success("Xóa thông báo thành công");
+
         } catch (error) {
-            toast.error("Trước tiên hãy đảm bảo bạn đã xóa tất cả sản phẩm và danh mục");
-            console.log(error)
+            toast.error("Không thể xóa thông báo");
+            console.log("Delete error:", error);
         } finally {
             setLoading(false);
             setOpen(false);
         }
-    }
+    };
+
+    // 📌 UPDATE NOTICE
+    const onUpdate = () => {
+        notificationModal.onOpen(data);
+    };
+
 
     return (
         <>
@@ -58,24 +74,33 @@ const CellAction: React.FC<CellActionProps> = ({
                 isOpen={open}
                 onClose={() => setOpen(false)}
                 onConfirm={onDelete}
-                loading={loading} />
+                loading={loading}
+            />
+
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant={"ghost"} className="h-8 w-8 p-0">
+                    <Button variant="ghost" className="h-8 w-8 p-0">
                         <span className="sr-only">Open menu</span>
                         <MoreHorizontal className="h-4 w-4" />
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent >
+
+                <DropdownMenuContent>
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
+
+                    {/* Copy ID */}
                     <DropdownMenuItem onClick={() => onCopy(data.id)}>
                         <Copy className="mr-2 h-4 w-4" />
-                        Copy Id
+                        Copy ID
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => route.push(`/${params.storeId}/products/${data.id}`)}>
+
+                    {/* Update */}
+                    <DropdownMenuItem onClick={onUpdate}>
                         <Edit className="mr-2 h-4 w-4" />
                         Update
                     </DropdownMenuItem>
+
+                    {/* Delete */}
                     <DropdownMenuItem onClick={() => setOpen(true)}>
                         <Trash className="mr-2 h-4 w-4" />
                         Delete
@@ -83,7 +108,7 @@ const CellAction: React.FC<CellActionProps> = ({
                 </DropdownMenuContent>
             </DropdownMenu>
         </>
-    )
-}
+    );
+};
 
-export default CellAction
+export default CellAction;

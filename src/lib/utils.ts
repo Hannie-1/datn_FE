@@ -1,3 +1,4 @@
+import { LocationResult } from "@/types";
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
@@ -37,8 +38,24 @@ export function isPositiveInteger(str: string | number | undefined) {
   return false;
 }
 
-export function formatDate(str: string) {
+export function formatDate(str: string | null) {
+  if (!str) return ""; 
   const day = str.split("T")[0].split("-")
   const time = str.split("T")[1].split("+")[0].split(":")
-  return `Giờ: ${time[0]}:${time[1]}- Ngày: ${day[2]}/${day[1]}/${day[0]}`;
+  return `${day[2]}/${day[1]}/${day[0]} ${time[0]}:${time[1]}`;
+}
+
+export const parseVND = (value: string | number): number => {
+  if (typeof value === "number") return value;
+
+  return Number(
+    value
+      .replace(/[^\d]/g, "") // xóa hết mọi ký tự không phải số
+  );
+};
+
+export function formatLocation(str: LocationResult | null){
+  if(!str) return "NONE";
+  const name = str.name.split(",")[0];
+  return name;
 }

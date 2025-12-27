@@ -1,30 +1,37 @@
 import axiosInstance from "@/lib/config-axios";
-import queryString from "query-string"
+import { LocationResult } from "@/types";
 
-const API_URL = `/auth/search`;
+const API_URL = `/common/search`;
 
 interface Query {
-    key?: string | null,
-    start_time?: string | null,
-    start_address?: string | null,
-    end_address?: string | null
+  key?: string | null;
+  from_city: string | null;
+  to_city: string | null;
+  start_time?: string | null;
+  date: string | null;
+  start_address?: LocationResult | null;
+  end_address?: LocationResult | null;
+  userLocation?: LocationResult | null;
 }
 
 const searchProducts = async (query: Query) => {
-    try {
-        const url = queryString.stringifyUrl({
-            url: API_URL,
-            query: {
-                key: query.key,
-                start_time: query.start_time,
-                start_address: query.start_address,
-                end_address: query.end_address,
-            }
-        }, { skipNull: true })
-        const res = await axiosInstance.get(url);
-        return res?.data;
-    } catch (e) {
+  try {
+    const res = await axiosInstance.post(API_URL, {
+      key: query.key ?? null,
+      from_city: query.from_city,
+      to_city: query.to_city,
+      start_time: query.start_time,
+      date: query.date,
+      start_address: query.start_address,
+      end_address: query.end_address,
+      userLocation: query.userLocation ?? null,
+    });
 
-    }
-}
+    return res.data;
+  } catch (e) {
+    console.error("searchProducts error:", e);
+    throw e;
+  }
+};
+
 export default searchProducts;

@@ -11,7 +11,7 @@ import { useEffect } from "react"
 import jwt from 'jsonwebtoken';
 import useUser from "@/hooks/use-user"
 import refreshToken from "@/actions/refresh-token"
-import getUserByEmail from "@/actions/get-user-by-email"
+import getUserByEmail from "@/actions/get-uset-store"
 import getRole from "@/actions/get-role"
 const Navbar = () => {
     const { handleOpen } = useSidebarStore();

@@ -23,19 +23,21 @@ import { SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/compone
 import toast from "react-hot-toast";
 import Link from "next/link";
 import signUpUser from "@/actions/sign-up";
+import { useRouter } from "next/navigation"
 
 const formSchema = z.object({
     username: z.string().min(1),
     email: z.string().min(1),
     password: z.string().min(6).max(15),
     phone_number: z.string().min(1),
-    role: z.string().default("User")
+    role: z.string().default("USER")
 })
 
 type SignUpValues = z.infer<typeof formSchema>;
 
 const FormSignUp = () => {
     const [loading, setLoading] = useState<boolean>(false);
+    const route = useRouter();
     const form = useForm<SignUpValues>({
         resolver: zodResolver(formSchema),
         defaultValues: {
@@ -43,7 +45,7 @@ const FormSignUp = () => {
             email: "",
             password: "",
             phone_number: "",
-            role: "User"
+            role: "USER"
         }
     })
     const onHandleSubmit = async (data: SignUpValues) => {
@@ -51,6 +53,7 @@ const FormSignUp = () => {
             setLoading(true);
             const dataResponse = await signUpUser(data);
             toast.success("Đăng ký thành công!")
+            route.push("/sign-in");
         } catch (err) {
             toast.error("Email đã được đăng ký, vui lòng dùng email khác")
         } finally {
@@ -124,12 +127,12 @@ const FormSignUp = () => {
                                                     </FormControl>
                                                     <SelectContent>
                                                         <SelectItem
-                                                            value={"User"}
+                                                            value={"USER"}
                                                         >
                                                             Người dùng
                                                         </SelectItem>
                                                         <SelectItem
-                                                            value={"Seller"}
+                                                            value={"SELLER"}
                                                         >
                                                             Chủ xe
                                                         </SelectItem>

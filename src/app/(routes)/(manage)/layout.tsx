@@ -19,7 +19,7 @@ const ManageLayout: React.FC<ManageLayoutProps> = ({ children }) => {
     const pathname = usePathname();
     const menu: MenuItem[] = [
         {
-            name: "Quản lý sản phẩm",
+            name: "Quản lý chuyến xe",
             href: "/manage-product",
             active: pathname.includes("/manage-product")
         },

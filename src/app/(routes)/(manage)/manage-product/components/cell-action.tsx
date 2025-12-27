@@ -19,38 +19,49 @@ import {
 import { ProductColumn } from "./column";
 import AlertModal from "@/components/models/alert-model";
 import deleteProductById from "@/actions/delete-product";
+import { parseVND } from "@/lib/utils"
+import updateStatusProduct from "@/actions/update-status-product"
 
 interface CellActionProps {
     data: ProductColumn
 }
 
-
-const CellAction: React.FC<CellActionProps> = ({
-    data
-}) => {
+const CellAction: React.FC<CellActionProps> = ({ data }) => {
     const route = useRouter();
-    const params = useParams();
-    const [loading, setLoading] = useState<boolean>(false);
-    const [open, setOpen] = useState<boolean>(false)
-    const onCopy = (id: string) => {
-        navigator.clipboard.writeText(id);
-        toast.success("Id sản phẩm được sao chép vào bảng nhớ tạm.")
-    }
+    const [loading, setLoading] = useState(false);
+    const [open, setOpen] = useState(false);
+    const [actionType, setActionType] = useState<"delete" | "hide" | null>(null);
+
     const onDelete = async () => {
         try {
             setLoading(true);
-            await deleteProductById(data?.id);
+            await deleteProductById(data.id);
             route.refresh();
-            location.reload();
-            toast.success("Xóa thành công sản phẩm");
+            toast.success("Xóa thành công chuyến xe");
         } catch (error) {
-            toast.error("Trước tiên hãy đảm bảo bạn đã xóa tất cả sản phẩm và danh mục");
-            console.log(error)
+            toast.error("Trước tiên hãy đảm bảo bạn đã xóa tất cả chuyến xe và danh mục");
         } finally {
             setLoading(false);
             setOpen(false);
         }
     }
+
+    const onHide = async () => {
+        try {
+            setLoading(true);
+
+            await updateStatusProduct(data.id);
+
+            toast.success("Cập nhật status thành công!");
+            route.refresh();
+
+        } catch (error) {
+            toast.error("Cập nhật status thất bại!");
+            console.log(error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <>
@@ -80,9 +91,9 @@ const CellAction: React.FC<CellActionProps> = ({
                         <Trash className="mr-2 h-4 w-4" />
                         Xóa
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setOpen(true)}>
+                    <DropdownMenuItem onClick={onHide}>
                         <EyeOff className="mr-2 h-4 w-4" />
-                        Ẩn
+                        Ẩn/Hiện
                     </DropdownMenuItem>
                     {/* <DropdownMenuItem onClick={() => setOpen(true)}>
                         <MapPin className="mr-2 h-4 w-4" />

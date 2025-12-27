@@ -1,91 +1,218 @@
-"use client"
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Clock, Disc, MapPin } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import queryString from 'query-string'
-import React, { useState } from 'react'
+"use client";
 
-const Filter = () => {
-    const [search, setSearch] = useState<string>();
-    const [searchFull, setSearchFull] = useState({
-        start_address: "",
-        end_address: "",
-        start_time: "",
-    });
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 
-    const router = useRouter();
-    const handleSubmit1 = () => {
-        const query = {
-            key: search
-        }
-        const url = queryString.stringifyUrl({
-            url: `${process.env.NEXT_PUBLIC_API_URL2}search/`,
-            query
-        }, { skipNull: true })
-        router.push(url);
-    }
+import { CITIES, CITY_POINTS } from "@/data";
+import useLocation from "@/hooks/use-location";
+import LocationPicker from "@/components/ui/location-picker";
+import searchProducts from "@/actions/search-product";
+import type { LocationResult, ProductManage } from "@/types";
 
-    const handleSubmit2 = () => {
-        const query = {
-            start_address: searchFull.start_address,
-            end_address: searchFull.end_address,
-            start_time: searchFull.start_time
-        }
-        const url = queryString.stringifyUrl({
-            url: `${process.env.NEXT_PUBLIC_API_URL2}search/`,
-            query
-        }, { skipNull: true })
-        router.push(url);
-    }
-
-    return (
-        <div>
-            <div className="flex w-full items-center space-x-2">
-                <Input type="email" placeholder="Nhập thông tin cần tìm kiếm" value={search} onChange={(e) => setSearch(e.target.value)} />
-                <Button type="submit" variant={"destructive"} onClick={() => handleSubmit1()}>Tìm Kiếm</Button>
-            </div>
-            <div className="lg:flex w-full lg:justify-between lg:space-x-2 py-4 px-2 mt-4 mb-5 rounded-sm bg-white">
-                <div className='grid grid-cols-2 lg:grid lg:grid-cols-4 gap-x-1'>
-                    <div>
-                        <div className='flex items-end'>
-                            <div className='pb-3 mr-1'>
-                                <Disc size={20} color='#424bcd' />
-                            </div>
-                            <div className="grid w-full max-w-sm items-center gap-1.5">
-                                <Label htmlFor="diemdon">Điểm đón</Label>
-                                <Input type="text" id="diemdon" className='outline-none ring-transparent' value={searchFull.start_address} onChange={(e) => setSearchFull((prev) => ({ ...prev, start_address: e.target.value }))} placeholder="Nhập Điểm Đón" />
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <div className='flex items-end'>
-                            <div className='pb-3 mr-1'>
-                                <MapPin size={20} color='red' />
-                            </div>
-                            <div className="grid w-full max-w-sm items-center gap-1.5">
-                                <Label htmlFor="diemden">Điểm đến</Label>
-                                <Input type="text" id="diemden" className='outline-none ring-transparent' placeholder="Nhập Điểm Đến" value={searchFull.end_address} onChange={(e) => setSearchFull((prev) => ({ ...prev, end_address: e.target.value }))} />
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <div className='flex items-end mt-2 lg:mt-0'>
-                            <div className='pb-3 mr-1 '>
-                                <Clock size={20} color='#424bcd' />
-                            </div>
-                            <div className="grid w-full max-w-sm items-center gap-1.5">
-                                <Label htmlFor="time">Giờ đi</Label>
-                                <Input type="time" id="time" className='outline-none ring-transparent' value={searchFull.start_time} onChange={(e) => setSearchFull((prev) => ({ ...prev, start_time: e.target.value }))} />
-                            </div>
-                        </div>
-                    </div>
-                    <Button type="submit" className='mt-7 ml-5 lg:mt-5' variant={"destructive"} onClick={() => handleSubmit2()}>Tìm Kiếm</Button>
-                </div>
-            </div>
-        </div>
-    )
+interface FilterProps {
+  onResult: (data: ProductManage[]) => void;
 }
 
-export default Filter
+const convertTo24Hour = (time12h: string) => {
+  if (!time12h) return "";
+  if (!time12h.includes("AM") && !time12h.includes("PM")) return time12h;
+  const [time, modifier] = time12h.split(" ");
+  let [hours, minutes] = time.split(":").map(Number);
+  if (modifier.toUpperCase() === "PM" && hours < 12) hours += 12;
+  if (modifier.toUpperCase() === "AM" && hours === 12) hours = 0;
+  return '${ hours.toString().padStart(2, "0") }:${ minutes.toString().padStart(2, "0") }';
+};
+
+const Filter = ({ onResult }: FilterProps) => {
+  const { data: userLocation, update } = useLocation();
+
+  /* ================= DEFAULT TIME ================= */
+  const now = new Date();
+  const defaultDate = now.toISOString().split("T")[0];
+  const defaultTime = now.toTimeString().slice(0, 5);
+  const defaultDateTime = `${defaultDate}T${defaultTime}`;
+
+  /* ================= STATE ================= */
+  const [filters, setFilters] = useState<{
+    from_city: string;
+    to_city: string;
+    date: string;
+    start_time: string;
+    start_address: LocationResult | null;
+    end_address: LocationResult | null;
+  }>({
+    from_city: "",
+    to_city: "",
+    date: defaultDate,
+    start_time: defaultTime,
+    start_address: null,
+    end_address: null,
+  });
+
+  const datetimeValue =
+  filters.date && filters.start_time
+    ? `${filters.date}T${filters.start_time}`
+    : `${defaultDate}T${defaultTime}`;
+
+  /* ================= SUBMIT ================= */
+  const handleSubmit = async () => {
+    const data = await searchProducts({
+      key: null,
+      from_city: filters.from_city || null,
+      to_city: filters.to_city || null,
+      start_time: filters.start_time,
+      date: filters.date,
+      start_address: filters.start_address,
+      end_address: filters.end_address,
+      userLocation: userLocation?.lat ? userLocation : null,
+    });
+
+    onResult(data ?? []);
+  };
+
+  return (
+    <div className="w-full space-y-6">
+      {/* LOCATION */}
+      <div className="w-full space-y-6">
+        <LocationPicker value={userLocation} onChange={(loc) => update(loc)} />
+      </div>
+
+      <div className="lg:flex w-full lg:justify-between py-4 px-2 mt-4 mb-5 rounded-sm bg-white">
+        <div className="w-full space-y-6">
+
+          {/* CITY */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Select
+              value={filters.from_city}
+              onValueChange={(name) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  from_city: name,
+                  start_address: null,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn thành phố bắt đầu" />
+              </SelectTrigger>
+              <SelectContent>
+                {CITIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={filters.to_city}
+              onValueChange={(name) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  to_city: name,
+                  end_address: null,
+                }))
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn thành phố đến" />
+              </SelectTrigger>
+              <SelectContent>
+                {CITIES.map((c) => (
+                  <SelectItem key={c} value={c}>
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* POINT + TIME */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Select
+              disabled={!filters.from_city}
+              value={filters.start_address?.name || ""}
+              onValueChange={(name) => {
+                const point =
+                  CITY_POINTS[filters.from_city]?.find(
+                    (p) => p.name === name
+                  ) || null;
+                setFilters((prev) => ({ ...prev, start_address: point }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn điểm đón" />
+              </SelectTrigger>
+              <SelectContent>
+                {(CITY_POINTS[filters.from_city] || []).map((p) => (
+                  <SelectItem key={p.name} value={p.name}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              disabled={!filters.to_city}
+              value={filters.end_address?.name || ""}
+              onValueChange={(name) => {
+                const point =
+                  CITY_POINTS[filters.to_city]?.find(
+                    (p) => p.name === name
+                  ) || null;
+                setFilters((prev) => ({ ...prev, end_address: point }));
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Chọn điểm trả" />
+              </SelectTrigger>
+              <SelectContent>
+                {(CITY_POINTS[filters.to_city] || []).map((p) => (
+                  <SelectItem key={p.name} value={p.name}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* ✅ DATETIME PICKER */}
+            <input
+              type="datetime-local"
+              className="border rounded p-1 w-[180px] text-sm h-10"
+              value={datetimeValue}
+              onChange={(e) => {
+                const [datePart, timePart] = e.target.value.split("T");
+                setFilters((prev) => ({
+                  ...prev,
+                  date: datePart,
+                  start_time: convertTo24Hour(timePart),
+                }));
+              }}
+            />
+
+
+            <div className="flex justify-end items-end">
+              <Button
+                className="w-[120px]"
+                variant="destructive"
+                onClick={handleSubmit}
+              >
+                Tìm kiếm
+              </Button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Filter;

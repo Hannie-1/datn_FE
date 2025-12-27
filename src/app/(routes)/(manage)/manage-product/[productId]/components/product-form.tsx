@@ -1,14 +1,15 @@
-"use client"
+"use client";
+
 import * as z from "zod";
-import { Trash } from 'lucide-react';
+import React, { useCallback, useState } from "react";
+import { Trash, Plus, X } from "lucide-react";
 import toast from "react-hot-toast";
-import React, { useCallback, useState } from 'react'
 import { useForm } from "react-hook-form";
 import { useParams, useRouter } from "next/navigation";
-
-import Heading from '@/components/ui/heading';
-import { Button } from '@/components/ui/button';
 import { zodResolver } from "@hookform/resolvers/zod";
+
+import Heading from "@/components/ui/heading";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
     Form,
@@ -16,22 +17,41 @@ import {
     FormField,
     FormItem,
     FormLabel,
-    FormMessage
+    FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import AlertModal from "@/components/models/alert-model";
 import ImageUpload from "@/components/ui/image-upload";
 import Tiptap from "@/components/tiptap";
+import LocationPicker from "@/components/ui/location-picker";
 import createProduct from "@/actions/create-product";
-import useUser from "@/hooks/use-user";
 import putProductById from "@/actions/update-product";
 import deleteProductById from "@/actions/delete-product";
+import useUser from "@/hooks/use-user";
+
+/* =======================
+   SCHEMA
+======================= */
+
+const locationSchema = z.object({
+    name: z.string().min(1, "Vui lòng chọn địa điểm"),
+    lat: z.number(),
+    lng: z.number(),
+});
+
+const stopSchema = z.object({
+    location: locationSchema,
+    stopTime: z.string().min(1), // "18:30"
+    type: z.enum(["PICKUP", "DROPOFF"]),
+    deleted: z.boolean(),
+});
 
 const formSchema = z.object({
     name: z.string().min(2),
-    start_address: z.string().min(1),
+    startLocation: locationSchema,
+    endLocation: locationSchema,
+    stopDTOS: z.array(stopSchema).optional(),
     images: z.object({ image_url: z.string() }).array(),
-    end_address: z.string().min(1),
     start_time: z.string().min(1),
     end_time: z.string().min(1),
     license_plates: z.string().min(1),
@@ -40,36 +60,42 @@ const formSchema = z.object({
     description: z.string().min(1),
     policy: z.string().min(1),
     price: z.number().or(z.string()),
-    remain_seat: z.number().or(z.string()),
+    quantity_seat: z.number().or(z.string()),
     type: z.string().min(1),
     utilities: z.string().min(1),
-    status: z.string().default("Hiện")
-})
+    status: z.string().default("Hiện"),
+});
 
 export type ProductFormValues = z.infer<typeof formSchema>;
 
-const ProductForm = ({ initialData }: {
-    initialData: ProductFormValues | null
-}) => {
-    const { email } = useUser();
-    const text = `<h5><strong>Chính sách nhà xe</strong></h5><h6><strong>Yêu cầu khi lên xe</strong></h6><ul><li>Không vứt rác trên xe</li><li>Không mang đồ ăn, thức ăn có mùi lên xe</li><li>Không hút thuốc, uống rượu, sử dụng chất kích thích trên xe</li><li>Không mang các vật dễ cháy nổ lên xe</li><li>Không làm ồn, gây mất trật tự trên xe</li></ul><h6><strong>Hành lý sách tay</strong></h6><ul><li>Tổng trọng lượng sách tay không quá 10kg</li></ul><h6><strong>Trẻ em và phụ nữ có thai</strong></h6><ul><li>Trẻ em dưới 3 tuổi hoặc dưới 110 cm được miễn phí vé nếu ngồi cùng ghế/giường với bố mẹ</li><li>Trẻ em từ 3 tuổi hoặc cao từ 110 cm trở lên mua vé như người lớn</li></ul><h6><strong>Động vật cảnh/thú cưng</strong></h6><ul><li>Nhận chở chó, mèo</li></ul>`
-    const params = useParams();
-    const route = useRouter();
-    const [open, setOpen] = useState<boolean>(false);
-    const [loading, setLoading] = useState<boolean>(false);
+/* =======================
+   COMPONENT
+======================= */
 
-    const title = initialData ? "Chỉnh sửa sản phẩm" : "Thêm mới sản phẩm";
-    const description = initialData ? "Chỉnh sửa sản phẩm" : "Thêm mới sản phẩm";
-    const toastMessage = initialData ? "Sản phẩm đã được chỉnh sửa." : "Sản phẩm đã được thêm mới.";
-    const action = initialData ? "Sản phẩm đã được sửa" : "Thêm mới sản phẩm"
+const ProductForm = ({ initialData }: { initialData: ProductFormValues | null }) => {
+    const { email } = useUser();
+    const params = useParams();
+    const router = useRouter();
+
+    const [open, setOpen] = useState(false);
+    const [loading, setLoading] = useState(false);
+
     const form = useForm<ProductFormValues>({
         resolver: zodResolver(formSchema),
         defaultValues: initialData || {
             name: "",
-            start_address: "",
-            end_address: "",
-            start_time: "",
+            startLocation: { name: "", lat: 0, lng: 0 },
+            endLocation: { name: "", lat: 0, lng: 0 },
+            stopDTOS: [
+                {
+                    location: { name: "", lat: 0, lng: 0 },
+                    stopTime: "",
+                    type: "PICKUP",
+                    deleted: false,
+                },
+            ],
             images: [],
+            start_time: "",
             end_time: "",
             license_plates: "",
             phone_number: "",
@@ -77,166 +103,289 @@ const ProductForm = ({ initialData }: {
             description: "",
             policy: "",
             price: 0,
-            remain_seat: 0,
+            quantity_seat: 0,
             type: "",
             utilities: "",
-            status: "Hiện"
-        }
-    })
-    const onSubmit = useCallback(async (data: ProductFormValues) => {
-        setLoading(true);
-        try {
-            if (initialData) {
-                await putProductById(params?.productId, { ...data, emailUser: email });
-            } else {
-                await createProduct({ ...data, emailUser: email });
-            }
-            route.push('/');
-            toast.success(toastMessage);
-        } catch (error) {
-            toast.error('Có lỗi xảy ra.');
-            console.error(error);
-        } finally {
-            setLoading(false);
-        }
-    }, [email, initialData, params?.productId, route, toastMessage]);
+            status: "Hiện",
+        },
+    });
 
-    const onDelete = useCallback(async () => {
+    /* =======================
+       SUBMIT
+    ======================= */
+
+    const onSubmit = useCallback(
+        async (data: ProductFormValues) => {
+            setLoading(true);
+            try {
+                if (initialData) {
+                    console.log("data khi sua: ", data)
+                    await putProductById(params?.productId, { ...data, emailUser: email });
+                } else {
+                    await createProduct({ ...data, emailUser: email });
+                }
+                toast.success("Lưu chuyến xe thành công");
+                router.push("/");
+            } catch (e) {
+                toast.error("Có lỗi xảy ra");
+            } finally {
+                setLoading(false);
+            }
+        },
+        [email, initialData, params?.productId, router]
+    );
+
+    const onDelete = async () => {
         setLoading(true);
         try {
             await deleteProductById(params?.productId);
-            route.refresh();
-            route.push('/');
-            toast.success('Product deleted.');
-        } catch (error) {
-            toast.error('An error occurred.');
-            console.error(error);
+            toast.success("Đã xoá chuyến xe");
+            router.push("/");
         } finally {
             setLoading(false);
             setOpen(false);
         }
-    }, [params?.productId, route]);
-    const createInputField = (
-        name: 'name' | 'start_address' | 'end_address' | 'start_time' | 'end_time' | 'license_plates' | 'phone_number' | 'phone_number2' | 'description' | 'policy' | 'price' | 'remain_seat' | 'type' | 'utilities' | 'status',
-        label: string,
-        type = "text",
-        placeholder = "",
-        additionalProps = {}
-    ) => (
-        <FormField
-            control={form.control}
-            name={name}
-            render={({ field }) => (
-                <FormItem>
-                    <FormLabel>{label}</FormLabel>
-                    <FormControl>
-                        <Input
-                            disabled={loading}
-                            type={type}
-                            placeholder={placeholder}
-                            {...field}
-                            {...additionalProps}
-                        />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-            )}
-        />
-    );
-    const createTiptapField = (name: 'policy' | 'utilities' | 'description', label = '', description = '') => (
-        <FormField control={form.control} name={name} render={({ field }) => (
-            <FormItem>
-                <FormLabel>{label}</FormLabel>
-                <FormControl>
-                    <div className="flex items-center gap-x-4 w-full">
-                        <Tiptap description={description !== '' ? text : field.value} onChange={field.onChange} />
-                    </div>
-                </FormControl>
-                <FormMessage />
-            </FormItem>
-        )} />
-    );
+    };
+
+    /* =======================
+       RENDER
+    ======================= */
 
     return (
         <>
             <AlertModal
                 isOpen={open}
+                loading={loading}
                 onClose={() => setOpen(false)}
                 onConfirm={onDelete}
-                loading={loading} />
-            <div className='flex items-center justify-between'>
-                <Heading
-                    title={title}
-                    description={description}
-                />
-                {initialData &&
-                    <Button
-                        variant={"destructive"}
-                        size={"icon"}
-                        onClick={() => setOpen(true)}
-                    >
-                        <Trash className='h-4 w-4' />
-                    </Button>}
-            </div>
+            />
+
+            <Heading title="Chuyến xe" description="Tạo / chỉnh sửa chuyến xe" />
             <Separator className="my-4" />
+
             <Form {...form}>
-                <form
-                    onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-6 w-full"
-                    method="POST"
-                >
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+                    {/* IMAGES */}
                     <FormField
                         control={form.control}
                         name="images"
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Hình ảnh</FormLabel>
-                                <FormControl>
-                                    <ImageUpload
-                                        value={field.value.map((image) => image.image_url)}
-                                        disabled={loading}
-                                        onChange={(url) => field.onChange([...field.value, { image_url: url }])}
-                                        onRemove={(url) => field.onChange([...field.value.filter((current) => current.image_url !== url)])}
-                                    />
-                                </FormControl>
-                                <FormMessage />
+                                <ImageUpload
+                                    value={field.value.map(i => i.image_url)}
+                                    onChange={(url) =>
+                                        field.onChange([...field.value, { image_url: url }])
+                                    }
+                                    onRemove={(url) =>
+                                        field.onChange(field.value.filter(i => i.image_url !== url))
+                                    }
+                                />
                             </FormItem>
                         )}
                     />
-                    <div className="grid grid-cols-3 gap-8">
-                        {createInputField("name", "Tên vé", "text", "Tên vé...")}
-                        {createInputField("start_address", "Địa điểm bắt đầu", "text", "Địa điểm bắt đầu...")}
-                        {createInputField("end_address", "Địa điểm kết thúc", "text", "Địa điểm kết thúc...")}
-                        {createInputField("start_time", "Thời gian bắt đầu", "time", "Thời gian bắt đầu...")}
-                        {createInputField("end_time", "Thời gian kết thúc", "time", "Thời gian kết thúc...")}
-                        {createInputField("remain_seat", "Số ghế trống", "text", "Nhập số trống...")}
-                        {createInputField("license_plates", "Biển số xe", "text", "Nhập biển số xe...")}
-                        {createInputField("type", "Kiểu xe", "text", "Nhập kiểu xe...")}
-                        {createInputField("price", "Giá vé", "number", "Nhập giá vé...")}
-                        <div className="col-span-3 grid grid-cols-3 gap-8">
-                            {createInputField("phone_number", "Số điện thoại 1", "text", "Nhập số điện thoại 1")}
-                            {createInputField("phone_number2", "Số điện thoại 2", "text", "Nhập số điện thoại 2")}
+
+                    <div className="grid grid-cols-3 gap-6">
+
+                        <InputField form={form} name="name" label="Tuyến" />
+                        <LocationField form={form} name="startLocation" label="Điểm bắt đầu" />
+                        <LocationField form={form} name="endLocation" label="Điểm kết thúc" />
+
+                        {/* STOP POINTS */}
+                        <FormField
+                            control={form.control}
+                            name="stopDTOS"
+                            render={({ field }) => (
+                                <FormItem className="col-span-3">
+                                    <FormLabel>Điểm dừng</FormLabel>
+
+                                    <div className="space-y-4">
+                                        {field.value?.map((stop, index) => (
+                                            <div
+                                                key={index}
+                                                className="relative border rounded-md p-4 grid grid-cols-5 gap-4 bg-gray-50"
+                                            >
+                                                {/* Nút Xoá góc trên cùng */}
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    className="absolute top-0 right-2 text-red-500 p-1 hover:bg-red-100 rounded-full"
+                                                    onClick={() =>
+                                                        field.onChange(field.value?.filter((_, i) => i !== index))
+                                                    }
+                                                >
+                                                    ❌
+                                                </Button>
+                                                {/* LOCATION */}
+                                                <div className="col-span-2">
+                                                    <FormLabel className="text-sm">
+                                                        Địa điểm dừng {index + 1}
+                                                    </FormLabel>
+                                                    <LocationPicker
+                                                        value={stop.location}
+                                                        onChange={(val) => {
+                                                            const list = [...field.value!];
+                                                            list[index].location = val;
+                                                            field.onChange(list);
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* STOP TIME */}
+                                                <div>
+                                                    <FormLabel className="text-sm">Giờ dừng</FormLabel>
+                                                    <Input
+                                                        type="time"
+                                                        value={stop.stopTime}
+                                                        onChange={(e) => {
+                                                            const list = [...field.value!];
+                                                            list[index].stopTime = e.target.value;
+                                                            field.onChange(list);
+                                                        }}
+                                                    />
+                                                </div>
+
+                                                {/* TYPE */}
+                                                <div>
+                                                    <FormLabel className="text-sm">Loại</FormLabel>
+                                                    <select
+                                                        className="w-full border rounded-md px-2 py-2"
+                                                        value={stop.type}
+                                                        onChange={(e) => {
+                                                            const list = [...field.value!];
+                                                            list[index].type = e.target.value as "PICKUP" | "DROPOFF";
+                                                            field.onChange(list);
+                                                        }}
+                                                    >
+                                                        <option value="PICKUP">Đón khách</option>
+                                                        <option value="DROPOFF">Trả khách</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* DELETED */}
+                                                <div>
+                                                    <FormLabel className="text-sm">Trạng thái</FormLabel>
+                                                    <select
+                                                        className="w-full border rounded-md px-2 py-2"
+                                                        value={String(stop.deleted)}
+                                                        onChange={(e) => {
+                                                            const list = [...field.value!];
+                                                            list[index].deleted = e.target.value === "true";
+                                                            field.onChange(list);
+                                                        }}
+                                                    >
+                                                        <option value="false">Đang dùng</option>
+                                                        <option value="true">Ngừng dùng</option>
+                                                    </select>
+                                                </div>
+
+                                                {/* REMOVE
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    className="col-span-4 text-red-500"
+                                                    onClick={() =>
+                                                        field.onChange(field.value?.filter((_, i) => i !== index))
+                                                    }
+                                                >
+                                                    ❌ Xoá điểm dừng
+                                                </Button> */}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="mt-3"
+                                        onClick={() =>
+                                            field.onChange([
+                                                ...(field.value || []),
+                                                {
+                                                    location: { name: "", lat: 0, lng: 0 },
+                                                    stop_time: "",
+                                                    type: "PICKUP",
+                                                    deleted: false,
+                                                },
+                                            ])
+                                        }
+                                    >
+                                        + Thêm điểm dừng
+                                    </Button>
+                                </FormItem>
+                            )}
+                        />
+
+                        <InputField form={form} name="start_time" label="Giờ đi" type="time" />
+                        <InputField form={form} name="end_time" label="Giờ đến" type="time" />
+                        <InputField form={form} name="license_plates" label="Biển số" />
+                        <InputField form={form} name="price" label="Giá vé" type="number" />
+                        <InputField form={form} name="quantity_seat" label="Số ghế" />
+                        <InputField form={form} name="phone_number" label="SĐT 1" />
+                        <InputField form={form} name="phone_number2" label="SĐT 2" />
+                        <InputField form={form} name="type" label="Loại xe" />
+
+                        <div className="col-span-3 grid grid-cols-3 gap-4">
+                            <EditorField form={form} name="policy" label="Chính sách" />
+                            <EditorField form={form} name="utilities" label="Tiện ích" />
+                            <EditorField form={form} name="description" label="Mô tả" />
                         </div>
-                        <div className="col-span-3 grid grid-cols-3 gap-x-4">
-                            {createTiptapField("policy", "Chính sách", "1111")}
-                            {createTiptapField("utilities", "Tiện ích chuyến xe")}
-                            {createTiptapField("description", "Mô tả")}
-                        </div>
+
                     </div>
-                    <Button
-                        disabled={loading}
-                        className="ml-auto w-full"
-                        variant={"default"}
-                        type="submit"
-                    >
-                        {action}
+
+                    <Button disabled={loading} type="submit" className="w-full">
+                        Lưu chuyến xe
                     </Button>
                 </form>
             </Form>
-            <Separator className="mt-2" />
-
         </>
-    )
-}
+    );
+};
 
 export default ProductForm;
+
+/* =======================
+   REUSABLE FIELDS
+======================= */
+
+const InputField = ({ form, name, label, type = "text" }: any) => (
+    <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+            <FormItem>
+                <FormLabel>{label}</FormLabel>
+                <FormControl>
+                    <Input {...field} type={type} />
+                </FormControl>
+            </FormItem>
+        )}
+    />
+);
+
+const LocationField = ({ form, name, label }: any) => (
+    <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+            <FormItem>
+                <FormLabel>{label}</FormLabel>
+                <LocationPicker value={field.value} onChange={field.onChange} />
+            </FormItem>
+        )}
+    />
+);
+
+const EditorField = ({ form, name, label }: any) => (
+    <FormField
+        control={form.control}
+        name={name}
+        render={({ field }) => (
+            <FormItem>
+                <FormLabel>{label}</FormLabel>
+                <Tiptap description={field.value} onChange={field.onChange} />
+            </FormItem>
+        )}
+    />
+);

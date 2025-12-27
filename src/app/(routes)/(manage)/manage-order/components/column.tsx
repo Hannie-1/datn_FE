@@ -3,14 +3,16 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import CellAction from "./cell-action"
+import { LocationResult } from "@/types"
+import { formatLocation } from "@/lib/utils"
 
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
 export type OrderColumn = {
-    orderID: string,
+    orderId: string,
     name: string,
-    pickUpAddress: string,
-    destinationAddress: string,
+    pickUpAddress: LocationResult,
+    destinationAddress: LocationResult,
     pickTime: string,
     message: string,
     phoneNumber: string,
@@ -18,22 +20,26 @@ export type OrderColumn = {
     totalPrice: string,
     createdAt: string,
     orderStatus: string,
-    owner_name: string
+    owner_name: string,
+    tripId: string
 }
 
 export const columns: ColumnDef<OrderColumn>[] = [
     {
         accessorKey: "name",
-        header: "Tên",
+        header: "Tuyến",
     },
     {
         accessorKey: "pickUpAddress",
         header: "Điểm đón",
+        cell: ({ row }) => formatLocation(row.original.pickUpAddress) || "",
     },
     {
         accessorKey: "destinationAddress",
         header: "Điểm trả",
+        cell: ({ row }) => formatLocation(row.original.destinationAddress) || "",
     },
+
     {
         accessorKey: "pickTime",
         header: "Giờ đón",
@@ -54,10 +60,10 @@ export const columns: ColumnDef<OrderColumn>[] = [
         accessorKey: "totalPrice",
         header: "Tổng tiền",
     },
-    // {
-    //     accessorKey: "createdAt",
-    //     header: "Ngày tạo",
-    // },
+    {
+        accessorKey: "created",
+        header: "Ngày tạo",
+    },
     {
         accessorKey: "orderStatus",
         header: "Trạng thái",

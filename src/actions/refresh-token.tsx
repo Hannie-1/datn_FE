@@ -7,6 +7,9 @@ interface IAccessToken {
 }
 
 const refreshToken = async (data: IAccessToken) => {
+    if(!data.access_token){
+        throw new Error("access token is missing");
+    }
     try {
         const res = await axiosInstance.post(API_URL, data);
         return res;

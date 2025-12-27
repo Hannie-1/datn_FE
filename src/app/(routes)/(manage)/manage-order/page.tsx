@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react'
 import OrderClient from './components/client'
 import useUser from '@/hooks/use-user'
 import { OrderColumn } from './components/column'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatLocation, formatVND } from '@/lib/utils'
 import getAllOrderByIdStore from '@/actions/get-all-order-by-id-store'
 
 const ManageOrder = () => {
@@ -12,22 +12,24 @@ const ManageOrder = () => {
     const [reload, setReload] = useState<boolean>(false);
     useEffect(() => {
         const fetchData = async () => {
+            if (!email) return;
             try {
-                const res = await getAllOrderByIdStore(id_store);
-                const formatData = res?.map((item: any) => ({
-                    orderID: item?.orderID,
-                    pickUpAddress: item?.pickUpAddress,
-                    name: item?.product?.name,
-                    destinationAddress: item?.destinationAddress,
-                    pickTime: formatDate(item?.pickTime),
-                    message: item?.message,
-                    phoneNumber: item?.phoneNumber,
-                    quantity: item?.quantity,
-                    totalPrice: item?.totalPrice,
-                    createdAt: formatDate(item?.createdAt),
-                    orderStatus: item?.orderStatus,
-                    owner_name: item?.product?.owner_name,
-                }))
+                const res = await getAllOrderByIdStore();
+                const formatData = res.data.map((item: any) => ({
+                                    orderId: item.orderId,
+                                    pickUpAddress: (item.pickUpAddress),
+                                    name: item.name,
+                                    destinationAddress: (item.destinationAddress),
+                                    pickTime: formatDate(item.pickTime),
+                                    message: item.message,
+                                    phoneNumber: item.phoneNumber,
+                                    quantity: item.quantity,
+                                    totalPrice: formatVND(item.totalPrice),
+                                    createdAt: formatDate(item.createdAt),
+                                    orderStatus: item.orderStatus,
+                                    owner_name: item.owner_name,
+                                    created: formatDate(item.created),
+                                }));
                 setData(formatData);
             } catch (e) {
 

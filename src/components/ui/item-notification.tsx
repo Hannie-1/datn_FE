@@ -2,16 +2,16 @@
 import React from 'react';
 import { TypeAnimation } from 'react-type-animation';
 interface IItem {
-    name: string,
+    // name: string,
     title: string,
     content: string,
-    effectiveness: boolean,
-    updateAt: string
+    status: string
+    // updateAt: string
 }
 const ItemNotification = (item: IItem) => {
     return (
         <div className='border-t-2 border-black py-2'>
-            <div className='font-semibold text-base text-[green]'>{item.name}</div>
+            <div className='font-semibold text-base text-[green]'>{item.title}</div>
             <div className='font-semibold text-base text-[red] my-3'>
                 <TypeAnimation
                     sequence={[
@@ -33,10 +33,10 @@ const ItemNotification = (item: IItem) => {
                 speed={50}
                 repeat={Infinity}
             /></div>
-            <div className='my-3 font-normal'>{item.effectiveness}</div>
-            <div className='mb-3 text-sm font-normal'>
+            {/* <div className='my-3 font-normal'>{item.effectiveness}</div> */}
+            {/* <div className='mb-3 text-sm font-normal'>
                 Sủa đổi lần cuối: {item.updateAt}
-            </div>
+            </div> */}
         </div>
     )
 }

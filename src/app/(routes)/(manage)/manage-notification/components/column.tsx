@@ -7,7 +7,8 @@ import CellAction from "./cell-action"
 // This type is used to define the shape of our data.
 // You can use a Zod schema here if you want.
 export type NotificationColumn = {
-    id: string
+    id: string,
+    productId: string,
     name: string,
     startTime: string,
     licensePlate: string,
@@ -21,11 +22,11 @@ export type NotificationColumn = {
 export const columns: ColumnDef<NotificationColumn>[] = [
     {
         accessorKey: "id",
-        header: "Id",
+        header: "ID",
     },
     {
         accessorKey: "name",
-        header: "Tên",
+        header: "Tuyến",
     },
     {
         accessorKey: "startTime",
@@ -47,10 +48,10 @@ export const columns: ColumnDef<NotificationColumn>[] = [
         accessorKey: "creatAt",
         header: "Ngày tạo",
     },
-    {
-        accessorKey: "updateAt",
-        header: "Ngày sửa",
-    },
+    // {
+    //     accessorKey: "updateAt",
+    //     header: "Ngày cập nhật gần nhất",
+    // },
     {
         accessorKey: "status",
         header: "Trạng thái",
